@@ -188,3 +188,31 @@ class ShowManager:
     def get_all_bookings(self) -> List[Dict[str, Any]]:
         with self._lock:
             return list(self.bookings)
+
+    def update_tier_prices(
+        self,
+        cleaned_prices: Dict[str, Decimal],
+        show_id: Optional[str] = None
+    ) -> List[str]:
+        """
+        Updates base prices for tiers from cleaned price list import.
+        Returns list of updated show titles.
+        """
+        updated_shows = []
+        with self._lock:
+            targets = [self.shows[show_id]] if (show_id and show_id in self.shows) else list(self.shows.values())
+            for show in targets:
+                for tier_name, price in cleaned_prices.items():
+                    if tier_name in show.tiers:
+                        show.tiers[tier_name].base_price = price
+                    else:
+                        # Add new tier dynamically to the screen with default 30 seats
+                        show.tiers[tier_name] = ShowTier(
+                            name=tier_name,
+                            base_price=price,
+                            total_seats=30,
+                            booked_seats=0
+                        )
+                updated_shows.append(show.movie_title)
+        return updated_shows
+

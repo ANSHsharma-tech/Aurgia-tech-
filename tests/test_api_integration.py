@@ -109,6 +109,39 @@ class TestCinePayAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"CinePay", res.data)
 
+    def test_get_sample_prices_api(self):
+        res = self.client.get("/api/prices/sample")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("silver", data["csv_content"])
+
+    def test_import_prices_api(self):
+        csv_payload = """Seat Tier,Base Price
+silver,180.00
+SILVER,₹195.00
+Gold,Rs. 280
+VIP Lounge,-150
+,300
+"""
+        res = self.client.post(
+            "/api/prices/import",
+            data=json.dumps({"csv_text": csv_payload, "apply_to_shows": True}),
+            content_type="application/json"
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["status"], "success")
+        report = data["report"]
+
+        # 2 unique imported tiers: Silver, Gold
+        self.assertEqual(report["imported_count"], 2)
+        # 1 deduplicated (SILVER overwrote silver)
+        self.assertEqual(report["deduplicated_count"], 1)
+        # 2 rejected (VIP Lounge negative, blank tier name)
+        self.assertEqual(report["rejected_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
+

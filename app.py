@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify, render_template
 
 from pricing_engine.models import BookingItem, OfferConfig, FeeAndTaxConfig
 from pricing_engine.engine import PricingEngine
+from pricing_engine.price_list_importer import PriceListSanitizer
 from inventory.show_manager import ShowManager
 
 app = Flask(__name__)
@@ -18,6 +19,8 @@ app.config["JSON_SORT_KEYS"] = False
 # Singleton application services
 pricing_engine = PricingEngine()
 show_manager = ShowManager()
+price_sanitizer = PriceListSanitizer()
+
 
 
 def serialize_breakdown(breakdown) -> Dict[str, Any]:
@@ -229,6 +232,80 @@ def api_reset_inventory():
     """Resets seat inventory and booking history for demonstration purposes."""
     show_manager.reset_inventory()
     return jsonify({"status": "success", "message": "Inventory successfully reset."})
+
+
+# ===================== THE TWIST: MESSY PRICE LIST IMPORTER =====================
+
+@app.route("/api/prices/sample", methods=["GET"])
+def api_get_sample_prices():
+    """Returns sample messy price list content for demo testing."""
+    try:
+        with open("sample_messy_price_list.csv", "r", encoding="utf-8") as f:
+            content = f.read()
+        return jsonify({"status": "success", "csv_content": content})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/prices/import", methods=["POST"])
+def api_import_prices():
+    """
+    The Twist Endpoint:
+    Imports a messy seat-class price list (with duplicate names in different cases,
+    inconsistent price representations, blank values, and negative prices).
+    Cleans it into a correct price list and generates a detailed audit report:
+    - imported
+    - deduplicated
+    - rejected
+    Optionally applies cleaned prices to active show or entire catalog.
+    """
+    try:
+        csv_text = None
+        raw_entries = None
+        apply_to_shows = False
+        show_id = None
+
+        # Check if multipart file was uploaded
+        if "file" in request.files:
+            file = request.files["file"]
+            csv_text = file.read().decode("utf-8", errors="replace")
+            apply_to_shows = request.form.get("apply_to_shows", "false").lower() in ("true", "1")
+            show_id = request.form.get("show_id") or None
+        elif request.is_json:
+            data = request.get_json() or {}
+            csv_text = data.get("csv_text")
+            raw_entries = data.get("entries")
+            apply_to_shows = bool(data.get("apply_to_shows", False))
+            show_id = data.get("show_id")
+        else:
+            csv_text = request.data.decode("utf-8", errors="replace")
+
+        if csv_text:
+            report = price_sanitizer.import_from_csv_text(csv_text)
+        elif raw_entries and isinstance(raw_entries, list):
+            report = price_sanitizer.import_and_clean(raw_entries)
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "No price list data provided. Send CSV file, csv_text, or entries array."
+            }), 400
+
+        updated_shows = []
+        if apply_to_shows and report.imported:
+            cleaned_prices = {item.tier: item.price for item in report.imported}
+            updated_shows = show_manager.update_tier_prices(cleaned_prices, show_id=show_id)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Processed {report.total_records_processed} records. Cleaned & imported: {report.imported_count}, De-duplicated: {report.deduplicated_count}, Rejected: {report.rejected_count}",
+            "report": report.to_dict(),
+            "applied_to_shows": updated_shows,
+            "updated_shows": show_manager.get_all_shows() if apply_to_shows else None
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Price import failed: {str(e)}"}), 500
+
 
 
 # ===================== FRONTEND VIEWS =====================

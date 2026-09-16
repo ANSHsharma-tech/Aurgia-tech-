@@ -640,15 +640,160 @@ function attachEventListeners() {
     btnRulesEl.addEventListener("click", () => rulesModal.classList.remove("hidden"));
     btnCloseRulesModal.addEventListener("click", () => rulesModal.classList.add("hidden"));
 
+    // THE TWIST: Messy Price List Importer Modal
+    const btnImportPrices = document.getElementById("btnImportPrices");
+    const importModal = document.getElementById("importModal");
+    const btnCloseImportModal = document.getElementById("btnCloseImportModal");
+    const btnLoadSampleCsv = document.getElementById("btnLoadSampleCsv");
+    const btnRunSanitizer = document.getElementById("btnRunSanitizer");
+    const rawPriceInput = document.getElementById("rawPriceInput");
+    const applyCleanedToShow = document.getElementById("applyCleanedToShow");
+    const importReportContainer = document.getElementById("importReportContainer");
+
+    const statProcessed = document.getElementById("statProcessed");
+    const statImported = document.getElementById("statImported");
+    const statDeduplicated = document.getElementById("statDeduplicated");
+    const statRejected = document.getElementById("statRejected");
+
+    const importedRowsList = document.getElementById("importedRowsList");
+    const deduplicatedList = document.getElementById("deduplicatedList");
+    const rejectedList = document.getElementById("rejectedList");
+
+    btnImportPrices.addEventListener("click", () => {
+        importModal.classList.remove("hidden");
+    });
+
+    btnCloseImportModal.addEventListener("click", () => {
+        importModal.classList.add("hidden");
+    });
+
+    btnLoadSampleCsv.addEventListener("click", async () => {
+        try {
+            const res = await fetch("/api/prices/sample");
+            const data = await res.json();
+            if (data.status === "success") {
+                rawPriceInput.value = data.csv_content;
+                showToast("Sample messy price list loaded!");
+            }
+        } catch (e) {
+            showToast("Failed to load sample: " + e.message, true);
+        }
+    });
+
+    btnRunSanitizer.addEventListener("click", async () => {
+        const text = rawPriceInput.value.trim();
+        if (!text) {
+            showToast("Please enter or paste price list data first!", true);
+            return;
+        }
+
+        btnRunSanitizer.disabled = true;
+        btnRunSanitizer.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sanitizing...`;
+
+        try {
+            const res = await fetch("/api/prices/import", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    csv_text: text,
+                    apply_to_shows: applyCleanedToShow.checked,
+                    show_id: appState.selectedShowId
+                })
+            });
+
+            const data = await res.json();
+            if (data.status === "success") {
+                const report = data.report;
+                
+                // Update stats
+                statProcessed.textContent = report.total_processed;
+                statImported.textContent = report.imported_count;
+                statDeduplicated.textContent = report.deduplicated_count;
+                statRejected.textContent = report.rejected_count;
+
+                // Render Cleaned & Imported Tiers
+                importedRowsList.innerHTML = "";
+                if (report.imported.length === 0) {
+                    importedRowsList.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-slate-500 italic">No valid tiers could be imported.</td></tr>`;
+                } else {
+                    report.imported.forEach(item => {
+                        const tr = document.createElement("tr");
+                        tr.className = "hover:bg-slate-900/80";
+                        tr.innerHTML = `
+                            <td class="p-2 font-bold text-emerald-400">${item.tier}</td>
+                            <td class="p-2 font-black text-white">${item.price_formatted}</td>
+                            <td class="p-2 text-slate-500">${item.original_tier || '-'}</td>
+                            <td class="p-2 text-slate-500">${item.original_price || '-'}</td>
+                        `;
+                        importedRowsList.appendChild(tr);
+                    });
+                }
+
+                // Render Deduplications
+                deduplicatedList.innerHTML = "";
+                if (report.deduplicated.length === 0) {
+                    deduplicatedList.innerHTML = `<div class="p-2 text-slate-500 italic">No duplicate tier names detected.</div>`;
+                } else {
+                    report.deduplicated.forEach(d => {
+                        const div = document.createElement("div");
+                        div.className = "p-2 rounded bg-amber-950/20 border border-amber-800/40 text-amber-300 flex justify-between items-center";
+                        div.innerHTML = `
+                            <span><strong>${d.tier}</strong>: ${d.resolution}</span>
+                            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Merged</span>
+                        `;
+                        deduplicatedList.appendChild(div);
+                    });
+                }
+
+                // Render Rejections
+                rejectedList.innerHTML = "";
+                if (report.rejected.length === 0) {
+                    rejectedList.innerHTML = `<div class="p-2 text-slate-500 italic">No records rejected. Perfect dataset!</div>`;
+                } else {
+                    report.rejected.forEach(r => {
+                        const div = document.createElement("div");
+                        div.className = "p-2 rounded bg-rose-950/20 border border-rose-800/40 text-rose-300 flex justify-between items-center";
+                        div.innerHTML = `
+                            <span>Row ${r.row_number || '?'}: <strong>'${r.raw_tier || '(blank)'}'</strong> @ '${r.raw_price || '(blank)'}'</span>
+                            <span class="text-[10px] text-rose-400 font-semibold">${r.reason}</span>
+                        `;
+                        rejectedList.appendChild(div);
+                    });
+                }
+
+                importReportContainer.classList.remove("hidden");
+                showToast(`Price List Sanitized: ${report.imported_count} imported, ${report.deduplicated_count} deduplicated, ${report.rejected_count} rejected.`);
+
+                // If updated shows were returned, refresh counter
+                if (data.updated_shows) {
+                    appState.shows = data.updated_shows;
+                    renderShows();
+                    renderTiers();
+                    triggerRecalculate();
+                }
+
+            } else {
+                showToast(data.message, true);
+            }
+        } catch (err) {
+            showToast("Sanitizing failed: " + err.message, true);
+        } finally {
+            btnRunSanitizer.disabled = false;
+            btnRunSanitizer.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Clean, De-duplicate & Audit`;
+        }
+    });
+
     // Keyboard Shortcuts (Fast counter cashier operations)
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
             receiptModal.classList.add("hidden");
             historyModal.classList.add("hidden");
             rulesModal.classList.add("hidden");
+            importModal.classList.add("hidden");
         }
     });
 }
+
 
 // Start application on DOM ready
 document.addEventListener("DOMContentLoaded", initApp);

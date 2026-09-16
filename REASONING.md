@@ -108,12 +108,41 @@ Under the Indian Goods and Services Tax (GST) Act:
 
 ## 5. Verification & Test Strategy
 
-To guarantee absolute trust in the pricing engine, a three-tiered automated test suite was constructed:
+To guarantee absolute trust in the pricing engine, a multi-tiered automated test suite was constructed:
 1. **`tests/test_pricing_engine.py` (9 tests)**:
    - Validates plain bookings, multi-tier orders, festival discounts, member discounts with/without cap, stacked offers, non-negative floors, and fractional rounding.
 2. **`tests/test_show_manager.py` (5 tests)**:
    - Validates multi-show catalog initialization, seat decrements, sold-out tier lockouts, overbooking rejections, and booking ledger audits.
-3. **`tests/test_api_integration.py` (5 tests)**:
-   - Validates live `/api/pricing/calculate` responses, `/api/bookings/create` atomic transactions, HTTP error codes on sold-out tiers, and thermal receipt rendering.
+3. **`tests/test_price_list_importer.py` (6 tests)**:
+   - Validates case normalization, messy currency formatting, comma numbers, rejection of negative & zero rates, de-duplication collision resolution, and CSV parsing.
+4. **`tests/test_api_integration.py` (7 tests)**:
+   - Validates live `/api/pricing/calculate` responses, `/api/bookings/create` atomic transactions, `/api/prices/import` and `/api/prices/sample` API flows, HTTP error codes on sold-out tiers, and thermal receipt rendering.
 
-All 19 tests run and pass synchronously in under 0.07 seconds.
+All 27 tests run and pass synchronously in under 0.04 seconds.
+
+---
+
+## 6. The Twist: Messy Price List Sanitization Heuristics
+
+The update to the problem statement introduced a realistic real-world engineering challenge:
+> *"Your solution must also import a messy seat-class price list — with duplicate names (in different cases), prices in inconsistent formats, blank values, and negative prices. Clean it into a correct price list and report what was imported, de-duplicated, and rejected."*
+
+### A. Cleaning & Normalization Strategy
+1. **Case-Insensitive Normalization**:
+   Different operators enter tier names haphazardly: `"silver"`, `"SILVER"`, `"  Silver  "`, `"gold"`, `"GOLD"`.
+   The sanitizer collapses redundant internal whitespace and applies `.strip().title()`, ensuring all casing variants map to a canonical key (`"Silver"`, `"Gold"`, `"Recliner"`).
+2. **Price Parsing & Format Stripping**:
+   Prices arrive with differing currency tokens (`₹`, `Rs.`, `INR`, `$`) and formatting commas (`1,250.00`).
+   The cleaner uses regular expressions to strip all non-numeric characters while preserving valid decimal dots and negative signs.
+3. **Rejection Safeguards (Negative, Zero, Blank, Non-Numeric)**:
+   - **Negative Prices**: Cinema tickets can never have negative base prices (e.g., `-150`, `₹-200`). These are rejected with explicit audit notes.
+   - **Zero Prices**: Zero rates are rejected to prevent free ticket exploits at the counter.
+   - **Blanks & Placeholders**: Rows with empty tier names, empty price cells, or placeholders like `"FREE"`, `"TBD"`, `"N/A"` are caught and rejected.
+4. **De-Duplication with Audit Trail**:
+   When multiple valid prices exist for the same normalized tier (e.g. `silver @ 180` followed by `SILVER @ 195`), the engine de-duplicates them by updating to the latest entry and logging a `DeduplicatedEntry` record detailing what was overridden and why.
+5. **Categorized Tri-Partite Audit Report**:
+   Every import produces a deterministic `PriceListImportReport` detailing:
+   - **Imported**: Canonical tier name, quantized Decimal price, and original raw values.
+   - **De-duplicated**: List of merged tiers showing previous vs new price and resolution rule.
+   - **Rejected**: Row number, raw input values, and specific human-readable failure reason.
+

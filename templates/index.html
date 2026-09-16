@@ -32,6 +32,9 @@
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span>Counter #04 • Audi Gate POS</span>
                 </div>
+                <button id="btnImportPrices" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-file-import"></i> Clean & Import Prices <span class="bg-amber-500 text-slate-950 text-[9px] px-1.5 py-0.2 rounded font-black">TWIST</span>
+                </button>
                 <button id="btnHistory" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
                     <i class="fa-solid fa-clock-rotate-left"></i> History
                 </button>
@@ -43,6 +46,7 @@
                 </button>
             </div>
         </div>
+
     </header>
 
     <!-- Main Terminal Container -->
@@ -375,7 +379,115 @@
         </div>
     </div>
 
+    <!-- Modal: The Twist - Messy Price List Importer & Audit Report -->
+    <div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-broom"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-white">Messy Seat-Class Price List Cleaner</h4>
+                        <p class="text-[11px] text-slate-400">Sanitizes inconsistent formats, handles case duplicates, rejects negatives & blanks</p>
+                    </div>
+                </div>
+                <button id="btnCloseImportModal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
+                <!-- Input Box & Actions -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="font-semibold text-slate-200">Paste Raw / Messy Price List (CSV or Text)</label>
+                        <div class="flex items-center gap-2">
+                            <button id="btnLoadSampleCsv" type="button" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-[11px] font-medium rounded-lg transition flex items-center gap-1">
+                                <i class="fa-solid fa-file-csv"></i> Load Sample Messy Data
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="rawPriceInput" rows="5" placeholder="Seat Tier, Base Price&#10;silver, 180.00&#10;SILVER, ₹190.00&#10;Gold, Rs. 280&#10;VIP Lounge, -150&#10;, 300"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-amber-500"></textarea>
+                    
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300 select-none">
+                            <input type="checkbox" id="applyCleanedToShow" class="w-4 h-4 accent-amber-500 rounded cursor-pointer" checked>
+                            <span>Apply cleaned prices directly to active screen & counter</span>
+                        </label>
+
+                        <button id="btnRunSanitizer" type="button" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-lg transition shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Clean, De-duplicate & Audit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cleaning Audit Report Section (Populated on Run) -->
+                <div id="importReportContainer" class="hidden space-y-3">
+                    <!-- Stat Badges -->
+                    <div class="grid grid-cols-4 gap-2.5 text-center">
+                        <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block uppercase">Processed</span>
+                            <span id="statProcessed" class="text-base font-bold font-mono text-white">0</span>
+                        </div>
+                        <div class="p-2.5 bg-emerald-950/40 rounded-xl border border-emerald-800/50">
+                            <span class="text-[10px] text-emerald-400 block uppercase font-medium">Cleaned & Imported</span>
+                            <span id="statImported" class="text-base font-bold font-mono text-emerald-300">0</span>
+                        </div>
+                        <div class="p-2.5 bg-amber-950/40 rounded-xl border border-amber-800/50">
+                            <span class="text-[10px] text-amber-400 block uppercase font-medium">De-duplicated</span>
+                            <span id="statDeduplicated" class="text-base font-bold font-mono text-amber-300">0</span>
+                        </div>
+                        <div class="p-2.5 bg-rose-950/40 rounded-xl border border-rose-800/50">
+                            <span class="text-[10px] text-rose-400 block uppercase font-medium">Rejected</span>
+                            <span id="statRejected" class="text-base font-bold font-mono text-rose-300">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Cleaned & Imported Tiers Table -->
+                    <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <h5 class="font-bold text-emerald-400 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-check-double"></i> 1. Cleaned & Imported Price List
+                        </h5>
+                        <div class="max-h-40 overflow-y-auto border border-slate-800/80 rounded-lg">
+                            <table class="w-full text-left text-[11px] font-mono">
+                                <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-2">Normalized Tier</th>
+                                        <th class="p-2">Clean Price</th>
+                                        <th class="p-2">Raw Tier</th>
+                                        <th class="p-2">Raw Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importedRowsList" class="divide-y divide-slate-800/60 text-slate-300">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- De-duplication Audit Log -->
+                    <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <h5 class="font-bold text-amber-400 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-code-merge"></i> 2. De-duplication Resolutions
+                        </h5>
+                        <div id="deduplicatedList" class="space-y-1.5 max-h-32 overflow-y-auto font-mono text-[11px]">
+                        </div>
+                    </div>
+
+                    <!-- Rejections Audit Log -->
+                    <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <h5 class="font-bold text-rose-400 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-ban"></i> 3. Rejected Records (Invalid / Blank / Negative)
+                        </h5>
+                        <div id="rejectedList" class="space-y-1.5 max-h-32 overflow-y-auto font-mono text-[11px]">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
+
     <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition duration-300 pointer-events-none">
         <div id="toastContent" class="bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs">
             <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
