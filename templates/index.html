@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CinePay - Multiplex Counter POS & Exact-Paisa Pricing Engine</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3.5 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center shadow-md shadow-rose-950/40">
+                    <i class="fa-solid fa-film text-slate-950 text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl font-bold tracking-tight text-white">Cine<span class="text-amber-400">Pay</span></span>
+                        <span class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-medium">Counter POS Engine</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Paisa-Exact Calculation • High-Volume Multiplex Billing Terminal</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Counter #04 • Audi Gate POS</span>
+                </div>
+                <button id="btnHistory" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left"></i> History
+                </button>
+                <button id="btnRules" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-book-open"></i> Money Rules
+                </button>
+                <button id="btnReset" class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i> Reset Demo
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Terminal Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Show Selection, Tier Controls, Offers & Customer Info (7 cols) -->
+        <div class="lg:col-span-7 space-y-5">
+
+            <!-- Step 1: Show & Movie Selector -->
+            <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">1</span>
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Select Movie & Showtime</h2>
+                    </div>
+                    <span id="activeShowBadge" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Select show</span>
+                </div>
+
+                <div id="showsList" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- Dynamic Show Cards populated via JS -->
+                    <div class="animate-pulse bg-slate-800/50 h-24 rounded-xl border border-slate-800"></div>
+                    <div class="animate-pulse bg-slate-800/50 h-24 rounded-xl border border-slate-800"></div>
+                    <div class="animate-pulse bg-slate-800/50 h-24 rounded-xl border border-slate-800"></div>
+                </div>
+            </section>
+
+            <!-- Step 2: Seat Tier Quantities -->
+            <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">2</span>
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Select Seats by Tier</h2>
+                    </div>
+                    <span class="text-xs text-slate-400">Sold out tiers are locked automatically</span>
+                </div>
+
+                <div id="tiersContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <!-- Tiers rendered via JS -->
+                </div>
+            </section>
+
+            <!-- Step 3: Layered Offers & Discounts -->
+            <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">3</span>
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Active Offers & Discounts</h2>
+                    </div>
+                    <span class="text-xs text-amber-400/90 font-mono">Discounts apply to base tickets</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <!-- Offer 1: Flat Festival Discount -->
+                    <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50 hover:border-slate-700 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <label for="toggleFestival" class="cursor-pointer">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-gift text-amber-400 text-sm"></i>
+                                    <span class="font-semibold text-sm text-slate-200">Festival Flat Offer</span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">Flat ₹50.00 off total ticket price</p>
+                            </label>
+                            <input type="checkbox" id="toggleFestival" class="w-5 h-5 accent-amber-500 rounded cursor-pointer mt-0.5">
+                        </div>
+                        <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-info"></i> Code: FESTIVAL50
+                        </div>
+                    </div>
+
+                    <!-- Offer 2: Percentage Member Discount (Capped) -->
+                    <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50 hover:border-slate-700 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <label for="toggleMember" class="cursor-pointer">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-crown text-amber-400 text-sm"></i>
+                                    <span class="font-semibold text-sm text-slate-200">Club Membership</span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">15% off tickets (Capped at ₹100.00)</p>
+                            </label>
+                            <input type="checkbox" id="toggleMember" class="w-5 h-5 accent-amber-500 rounded cursor-pointer mt-0.5">
+                        </div>
+                        <div id="memberIdGroup" class="mt-2.5 hidden">
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="memberIdInput" placeholder="Member ID (e.g. CINE-882)" 
+                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono">
+                                <button type="button" id="btnQuickMember" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 whitespace-nowrap">
+                                    VIP
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Customer Details & Payment Mode -->
+            <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">4</span>
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Customer & Payment Mode</h2>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Customer Name</label>
+                        <input type="text" id="customerName" placeholder="Walk-in Guest" value="Walk-in Guest"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Mobile No.</label>
+                        <input type="text" id="customerPhone" placeholder="9876543210" value="9876543210"
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Payment Method</label>
+                        <select id="paymentMode" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                            <option value="UPI / QR Code">UPI / Dynamic QR</option>
+                            <option value="Cash">Cash Counter</option>
+                            <option value="Credit / Debit Card">Credit / Debit Card</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Right Column: Real-Time Transparent Line-by-Line Bill & Grand Total (5 cols) -->
+        <div class="lg:col-span-5 space-y-5">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-2xl sticky top-20 flex flex-col justify-between">
+                <div>
+                    <!-- Header -->
+                    <div class="flex items-center justify-between pb-3.5 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-receipt text-amber-400"></i>
+                            <h3 class="font-bold text-sm tracking-wide text-white uppercase">Itemized Bill Breakup</h3>
+                        </div>
+                        <span class="text-[11px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">Exact to Paisa (₹)</span>
+                    </div>
+
+                    <!-- Selected Show Info Strip -->
+                    <div id="billShowHeader" class="py-2.5 px-3 my-3 bg-slate-950/70 rounded-xl border border-slate-800/80 text-xs flex justify-between items-center">
+                        <div class="truncate mr-2">
+                            <span id="billMovieTitle" class="font-semibold text-slate-200 block truncate">No show selected</span>
+                            <span id="billScreenTime" class="text-slate-500 text-[11px]">Select a show to begin</span>
+                        </div>
+                        <div id="billTicketCountBadge" class="bg-amber-500/10 text-amber-400 font-bold px-2 py-1 rounded text-xs whitespace-nowrap">
+                            0 Seats
+                        </div>
+                    </div>
+
+                    <!-- Line Items Table -->
+                    <div class="space-y-2 text-xs my-3 max-h-[290px] overflow-y-auto pr-1" id="lineItemsContainer">
+                        <div class="text-center py-8 text-slate-500 italic">
+                            Select seat quantities to view the live line-by-line itemized calculation.
+                        </div>
+                    </div>
+
+                    <!-- Financial Summary Breakdown -->
+                    <div class="pt-3 border-t border-slate-800 space-y-1.5 text-xs">
+                        <div class="flex justify-between text-slate-400">
+                            <span>Gross Ticket Price</span>
+                            <span id="summaryGross" class="font-mono text-slate-200">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-emerald-400" id="summaryDiscountRow" style="display: none;">
+                            <span>Total Offers Applied</span>
+                            <span id="summaryDiscount" class="font-mono">-₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400 font-medium pt-1 border-t border-slate-800/60">
+                            <span>Net Ticket Subtotal</span>
+                            <span id="summaryNetTickets" class="font-mono text-slate-200">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span class="flex items-center gap-1">
+                                Convenience Fee <span class="text-[10px] text-slate-500">(₹30/ticket)</span>
+                            </span>
+                            <span id="summaryFee" class="font-mono text-slate-200">₹0.00</span>
+                        </div>
+                        
+                        <!-- Tax Sub-breakdown -->
+                        <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80 my-1.5 space-y-1 text-[11px]">
+                            <div class="flex justify-between text-slate-400 font-semibold border-b border-slate-800/60 pb-1">
+                                <span>GST Dual-Slab Breakdown (18%)</span>
+                                <span id="summaryTotalTax" class="font-mono text-amber-300">₹0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 pl-1">
+                                <span>• CGST on Tickets (9.0%)</span>
+                                <span id="summaryCgstTickets" class="font-mono">₹0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 pl-1">
+                                <span>• SGST on Tickets (9.0%)</span>
+                                <span id="summarySgstTickets" class="font-mono">₹0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 pl-1">
+                                <span>• CGST on Convenience Fee (9.0%)</span>
+                                <span id="summaryCgstFee" class="font-mono">₹0.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 pl-1">
+                                <span>• SGST on Convenience Fee (9.0%)</span>
+                                <span id="summarySgstFee" class="font-mono">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Grand Total Card -->
+                        <div class="bg-gradient-to-r from-amber-500/20 via-amber-600/10 to-transparent p-3.5 rounded-xl border border-amber-500/30 flex items-center justify-between mt-3">
+                            <div>
+                                <span class="text-xs font-semibold text-amber-300 uppercase tracking-wider block">Grand Total</span>
+                                <span class="text-[10px] text-slate-400">Includes all taxes & fees</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="summaryGrandTotal" class="text-2xl font-black text-amber-400 font-mono tracking-tight">₹0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Customer Dispute Resolution & Audit Explainability -->
+                    <div class="mt-3">
+                        <details class="text-[11px] text-slate-400 group">
+                            <summary class="cursor-pointer text-amber-400/90 font-medium hover:text-amber-300 flex items-center gap-1.5 py-1">
+                                <i class="fa-solid fa-calculator"></i>
+                                <span>Customer Audit Note: View Exact Math Formula</span>
+                            </summary>
+                            <div id="calculationAuditNotes" class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 mt-2 space-y-1 font-mono text-[11px] text-slate-400">
+                                <div>No calculation notes yet.</div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="pt-4 mt-2 space-y-2">
+                    <button id="btnBook" disabled
+                        class="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm rounded-xl transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-print"></i>
+                        <span>Confirm Booking & Issue Receipt</span>
+                    </button>
+                    <button id="btnClear" type="button"
+                        class="w-full py-2 px-3 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition text-center">
+                        Clear Selection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Thermal Receipt View -->
+    <div id="receiptModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                    <h4 class="font-bold text-sm text-white">Booking Confirmed & Printed</h4>
+                </div>
+                <button id="btnCloseModal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-950">
+                <!-- Thermal Paper Card -->
+                <div id="thermalReceiptContent" class="bg-white text-slate-900 font-mono p-5 rounded-lg shadow-inner text-xs border border-slate-300 space-y-3">
+                    <!-- Dynamic receipt content inserted here -->
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex gap-2">
+                <button id="btnPrintReceipt" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-print"></i> Print Thermal Receipt
+                </button>
+                <button id="btnDismissReceipt" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Booking History -->
+    <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+                    <h4 class="font-bold text-sm text-white">Counter Transaction Audit History</h4>
+                </div>
+                <button id="btnCloseHistoryModal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1" id="historyContainer">
+                <div class="text-center py-8 text-slate-500 text-xs">No transactions recorded yet.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Money Rules Explanation Guide -->
+    <div id="rulesModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+                    <h4 class="font-bold text-sm text-white">Pricing Engine Financial Rules & GST Spec</h4>
+                </div>
+                <button id="btnCloseRulesModal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1 text-xs space-y-4 text-slate-300">
+                <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <h5 class="font-bold text-amber-400 mb-1 text-sm">1. Seating Tiers & Capacity Lockout</h5>
+                    <p class="text-slate-400 leading-relaxed">
+                        Seats are categorized into Silver, Gold, and Recliner. When a tier sells out (remaining capacity = 0), the counter system locks booking for that tier to eliminate overbooking and queue disputes.
+                    </p>
+                </div>
+                <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <h5 class="font-bold text-amber-400 mb-1 text-sm">2. Discount Layering & Caps</h5>
+                    <ul class="list-disc pl-4 text-slate-400 space-y-1">
+                        <li><strong>Festival Offer:</strong> Flat ₹50.00 off base ticket total.</li>
+                        <li><strong>Member Offer:</strong> 15% discount on base tickets, capped at maximum ₹100.00 deduction.</li>
+                        <li><strong>Rule:</strong> Total discounts cannot exceed gross ticket price (tickets can never be negative).</li>
+                    </ul>
+                </div>
+                <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <h5 class="font-bold text-amber-400 mb-1 text-sm">3. Convenience Fee</h5>
+                    <p class="text-slate-400 leading-relaxed">
+                        A fixed fee of <strong>₹30.00 per ticket</strong> is added to every booking to cover counter booking infrastructure and operations.
+                    </p>
+                </div>
+                <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <h5 class="font-bold text-amber-400 mb-1 text-sm">4. Indian GST Dual-Slab Splitting (Exact Paisa)</h5>
+                    <ul class="list-disc pl-4 text-slate-400 space-y-1">
+                        <li><strong>Tickets:</strong> 18% GST (9% CGST + 9% SGST) applied to net ticket price after all discounts.</li>
+                        <li><strong>Convenience Fee:</strong> 18% Service GST (9% CGST + 9% SGST) applied to total convenience fee.</li>
+                        <li><strong>Exact Paisa Arithmetic:</strong> Decimal math with half-up rounding guarantees every paisa balances to the penny with zero floating point drift.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition duration-300 pointer-events-none">
+        <div id="toastContent" class="bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toastMsg">Operation successful</span>
+        </div>
+    </div>
+
+    <script src="/static/js/counter.js"></script>
+</body>
+</html>

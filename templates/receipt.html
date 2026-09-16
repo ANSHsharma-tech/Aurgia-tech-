@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice Receipt - {{ booking.booking_id if booking else 'Receipt' }}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .receipt-card {
+            background: white;
+            width: 320px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            border: 1px solid #cbd5e1;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #0f172a;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .receipt-card { width: 100%; border: none; box-shadow: none; padding: 10px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+{% if not booking %}
+<div class="receipt-card text-center">
+    <p>Booking not found.</p>
+</div>
+{% else %}
+<div class="receipt-card">
+    <div style="text-align: center; border-bottom: 1px dashed #475569; padding-bottom: 10px; margin-bottom: 10px;">
+        <h2 style="font-size: 16px; margin: 0; font-weight: bold; text-transform: uppercase;">CinePay Multiplex</h2>
+        <p style="margin: 2px 0; font-size: 10px; color: #475569;">Galaxy Grand City Mall • Screen Counter #04</p>
+        <p style="margin: 2px 0; font-size: 10px; font-weight: bold;">TAX INVOICE / TICKET PASS</p>
+        <p style="margin: 2px 0; font-size: 9px; color: #64748b;">GSTIN: 07AAAAA0000A1Z5</p>
+    </div>
+
+    <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between;">
+            <span>Booking ID:</span>
+            <strong style="font-weight: bold;">{{ booking.booking_id }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Date & Time:</span>
+            <span>{{ booking.timestamp }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Customer:</span>
+            <span>{{ booking.customer_name }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Payment Mode:</span>
+            <span>{{ booking.payment_mode }}</span>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">
+        <div style="font-weight: bold; font-size: 13px; text-transform: uppercase;">{{ booking.movie_title }}</div>
+        <div style="color: #475569;">{{ booking.screen_name }}</div>
+        <div style="font-weight: bold; color: #0284c7;">{{ booking.show_time }}</div>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+        <thead>
+            <tr style="border-bottom: 1px solid #475569; text-align: left; font-size: 10px;">
+                <th style="padding: 2px 0;">Item</th>
+                <th style="text-align: center; padding: 2px 0;">Qty</th>
+                <th style="text-align: right; padding: 2px 0;">Rate</th>
+                <th style="text-align: right; padding: 2px 0;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in booking.pricing.line_items %}
+            {% if item.category == 'TICKET' %}
+            <tr>
+                <td style="padding: 2px 0;">{{ item.description }}</td>
+                <td style="text-align: center; padding: 2px 0;">{{ item.quantity }}</td>
+                <td style="text-align: right; padding: 2px 0;">{{ item.rate_fmt }}</td>
+                <td style="text-align: right; padding: 2px 0;">{{ item.amount_fmt }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="border-top: 1px dashed #cbd5e1; padding-top: 6px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between;">
+            <span>Gross Tickets:</span>
+            <span>{{ booking.pricing.gross_ticket_amount_fmt }}</span>
+        </div>
+
+        {% if booking.pricing.total_discount_applied > 0 %}
+        <div style="display: flex; justify-content: space-between; color: #15803d; font-weight: bold;">
+            <span>Discounts Applied:</span>
+            <span>-{{ booking.pricing.total_discount_applied_fmt }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold;">
+            <span>Net Ticket Price:</span>
+            <span>{{ booking.pricing.net_ticket_amount_fmt }}</span>
+        </div>
+        {% endif %}
+
+        <div style="display: flex; justify-content: space-between;">
+            <span>Convenience Fee:</span>
+            <span>{{ booking.pricing.total_convenience_fee_fmt }}</span>
+        </div>
+    </div>
+
+    <div style="border-top: 1px dashed #cbd5e1; padding-top: 6px; margin-bottom: 8px; font-size: 10px; color: #475569;">
+        <div style="display: flex; justify-content: space-between;">
+            <span>CGST on Tickets (9%):</span>
+            <span>{{ booking.pricing.cgst_tickets_fmt }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>SGST on Tickets (9%):</span>
+            <span>{{ booking.pricing.sgst_tickets_fmt }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>CGST on Fee (9%):</span>
+            <span>{{ booking.pricing.cgst_fee_fmt }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>SGST on Fee (9%):</span>
+            <span>{{ booking.pricing.sgst_fee_fmt }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold; color: #0f172a; margin-top: 2px;">
+            <span>Total Taxes (GST 18%):</span>
+            <span>{{ booking.pricing.total_tax_fmt }}</span>
+        </div>
+    </div>
+
+    <div style="border-top: 2px solid #0f172a; border-bottom: 2px solid #0f172a; padding: 6px 0; margin-bottom: 12px; display: flex; justify-content: space-between; font-size: 14px; font-weight: bold;">
+        <span>TOTAL PAID:</span>
+        <span>{{ booking.pricing.grand_total_fmt }}</span>
+    </div>
+
+    <div style="text-align: center; font-size: 9px; color: #64748b; line-height: 1.3;">
+        <p style="margin: 2px 0;">* Exact Paisa Audited Settlement *</p>
+        <p style="margin: 2px 0;">Thank you for visiting CinePay Multiplex!</p>
+        <p style="margin: 2px 0;">Please retain this receipt for entry.</p>
+        <div style="margin-top: 10px; display: inline-block; padding: 4px; border: 1px solid #94a3b8; font-size: 8px; letter-spacing: 2px;">
+            ||||| | |||| ||| |||| | ||||| ||||
+        </div>
+    </div>
+
+    <div class="no-print" style="margin-top: 20px; text-align: center;">
+        <button onclick="window.print()" style="padding: 8px 16px; background: #f59e0b; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            Print Receipt
+        </button>
+        <a href="/" style="display: inline-block; margin-left: 8px; padding: 8px 16px; background: #e2e8f0; color: #0f172a; text-decoration: none; border-radius: 4px;">
+            Back to POS
+        </a>
+    </div>
+</div>
+{% endif %}
+
+</body>
+</html>
