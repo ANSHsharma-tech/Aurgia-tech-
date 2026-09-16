@@ -35,6 +35,9 @@
                 <button id="btnImportPrices" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
                     <i class="fa-solid fa-file-import"></i> Clean & Import Prices <span class="bg-amber-500 text-slate-950 text-[9px] px-1.5 py-0.2 rounded font-black">TWIST</span>
                 </button>
+                <button id="btnAnalytics" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-pie"></i> Analytics
+                </button>
                 <button id="btnHistory" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg transition flex items-center gap-1.5">
                     <i class="fa-solid fa-clock-rotate-left"></i> History
                 </button>
@@ -73,20 +76,51 @@
                 </div>
             </section>
 
-            <!-- Step 2: Seat Tier Quantities -->
+            <!-- Step 2: Seat Tier Selection (With Dual Mode: Rapid Counter or Interactive Seat Map) -->
             <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center space-x-2">
                         <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">2</span>
-                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Select Seats by Tier</h2>
+                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Select Seats</h2>
                     </div>
-                    <span class="text-xs text-slate-400">Sold out tiers are locked automatically</span>
+                    <!-- Mode Switcher Tabs -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+                        <button id="btnTabCounters" type="button" class="px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-bolt"></i> Quick Tier
+                        </button>
+                        <button id="btnTabSeatMap" type="button" class="px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium flex items-center gap-1 transition">
+                            <i class="fa-solid fa-couch"></i> Audi Seat Map
+                        </button>
+                    </div>
                 </div>
 
+                <!-- Mode A: Rapid Tier Counters -->
                 <div id="tiersContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <!-- Tiers rendered via JS -->
                 </div>
+
+                <!-- Mode B: Interactive Visual Audi Seat Grid -->
+                <div id="seatMapContainer" class="hidden mt-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <!-- Screen Graphic -->
+                    <div class="text-center mb-4">
+                        <div class="w-3/4 mx-auto h-2 bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded-full shadow-[0_0_12px_rgba(245,158,11,0.5)]"></div>
+                        <span class="text-[10px] tracking-widest uppercase font-mono text-amber-400/80 block mt-1">CINEMA SCREEN THIS WAY</span>
+                    </div>
+
+                    <!-- Seat Rows -->
+                    <div id="visualSeatGrid" class="space-y-2.5 overflow-x-auto pb-2">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400">
+                        <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-slate-800 border border-slate-700 inline-block"></span> Available</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-amber-500 border border-amber-400 inline-block"></span> Selected</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-rose-950/60 border border-rose-800/80 text-rose-400 inline-flex items-center justify-center text-[9px] font-bold">✕</span> Booked / Sold Out</div>
+                    </div>
+                </div>
             </section>
+
 
             <!-- Step 3: Layered Offers & Discounts -->
             <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
@@ -170,8 +204,43 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- Interactive Cash Change Calculator (Shown when Cash selected) -->
+                <div id="cashChangeBox" class="hidden mt-3 p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <label for="cashTenderedInput" class="font-medium text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-money-bill-wave text-emerald-400"></i> Cash Tendered by Customer:
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 font-mono text-xs">₹</span>
+                            <input type="number" step="1" id="cashTenderedInput" placeholder="e.g. 1000"
+                                class="w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-amber-500 text-right">
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-xs">
+                        <span class="text-slate-400">Change Due to Customer:</span>
+                        <span id="cashChangeDue" class="font-mono font-bold text-emerald-400 text-sm">₹0.00</span>
+                    </div>
+                </div>
+
+                <!-- Dynamic UPI QR Preview (Shown when UPI selected) -->
+                <div id="upiQrBox" class="mt-3 p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-white p-1 rounded-lg flex items-center justify-center shadow">
+                            <i class="fa-solid fa-qrcode text-2xl text-slate-900"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-200">Dynamic Instant UPI QR</div>
+                            <div class="text-[11px] text-slate-400">Scan via GPay, PhonePe, Paytm or BHIM</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="upiAmountBadge" class="font-mono font-bold text-amber-400 text-xs bg-amber-500/10 px-2 py-1 rounded border border-amber-500/30">₹0.00</span>
+                    </div>
+                </div>
             </section>
         </div>
+
 
         <!-- Right Column: Real-Time Transparent Line-by-Line Bill & Grand Total (5 cols) -->
         <div class="lg:col-span-5 space-y-5">
@@ -486,7 +555,77 @@
         </div>
     </div>
 
+    <!-- Modal: Manager Analytics & Financial Dashboard -->
+    <div id="analyticsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-amber-400"></i>
+                    <h4 class="font-bold text-sm text-white">Multiplex Manager Analytics & Tax Audit</h4>
+                </div>
+                <button id="btnCloseAnalyticsModal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
+                <!-- Financial Cards -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-sans uppercase">Total Revenue</span>
+                        <span id="analyticsRev" class="text-base font-bold text-amber-400">₹0.00</span>
+                    </div>
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-sans uppercase">GST Collected</span>
+                        <span id="analyticsTax" class="text-base font-bold text-purple-400">₹0.00</span>
+                    </div>
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-sans uppercase">Convenience Fees</span>
+                        <span id="analyticsFees" class="text-base font-bold text-sky-400">₹0.00</span>
+                    </div>
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-sans uppercase">Discounts Granted</span>
+                        <span id="analyticsDisc" class="text-base font-bold text-emerald-400">₹0.00</span>
+                    </div>
+                </div>
+
+                <!-- Operational Metrics -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2.5">
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>Total Counter Transactions:</span>
+                        <strong id="analyticsTxCount" class="font-mono text-white text-sm">0</strong>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>Total Tickets Sold:</span>
+                        <strong id="analyticsTixCount" class="font-mono text-white text-sm">0</strong>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>Screen Capacity Utilization:</span>
+                        <strong id="analyticsOccupancy" class="font-mono text-amber-400 text-sm">0.0%</strong>
+                    </div>
+                </div>
+
+                <!-- Tier Breakdown -->
+                <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                    <h5 class="font-bold text-slate-200">Tickets Sold by Tier</h5>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">Silver Tier</span>
+                            <span id="analyticsSilverTix" class="font-mono font-bold text-sm text-slate-200">0</span>
+                        </div>
+                        <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">Gold Tier</span>
+                            <span id="analyticsGoldTix" class="font-mono font-bold text-sm text-amber-400">0</span>
+                        </div>
+                        <div class="p-2 rounded bg-slate-900 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 block">Recliner Tier</span>
+                            <span id="analyticsReclinerTix" class="font-mono font-bold text-sm text-rose-400">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
+
 
     <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition duration-300 pointer-events-none">
         <div id="toastContent" class="bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs">

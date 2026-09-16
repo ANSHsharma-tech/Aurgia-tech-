@@ -141,6 +141,15 @@ VIP Lounge,-150
         # 2 rejected (VIP Lounge negative, blank tier name)
         self.assertEqual(report["rejected_count"], 2)
 
+    def test_analytics_api(self):
+        res = self.client.get("/api/analytics")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("analytics", data)
+        self.assertIn("total_revenue", data["analytics"])
+        self.assertIn("total_tax_collected", data["analytics"])
+
 
 if __name__ == "__main__":
     unittest.main()

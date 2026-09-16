@@ -183,10 +183,14 @@ def api_create_booking():
             "customer_name": customer_name,
             "customer_phone": customer_phone,
             "payment_mode": payment_mode,
+            "selected_seats": data.get("selected_seats", []),
+            "cash_tendered": data.get("cash_tendered"),
+            "change_due": data.get("change_due"),
             "items_booked": [
                 {"tier": item.tier, "quantity": item.quantity, "unit_price": float(item.unit_price)}
                 for item in booking_items
             ],
+
             "offers_used": {
                 "festival_discount": offers.enable_festival_discount,
                 "member_discount": offers.enable_member_discount,
@@ -232,6 +236,14 @@ def api_reset_inventory():
     """Resets seat inventory and booking history for demonstration purposes."""
     show_manager.reset_inventory()
     return jsonify({"status": "success", "message": "Inventory successfully reset."})
+
+
+@app.route("/api/analytics", methods=["GET"])
+def api_get_analytics():
+    """Returns real-time counter financial metrics, taxes collected, and occupancy."""
+    analytics = show_manager.get_analytics()
+    return jsonify({"status": "success", "analytics": analytics})
+
 
 
 # ===================== THE TWIST: MESSY PRICE LIST IMPORTER =====================

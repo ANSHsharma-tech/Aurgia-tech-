@@ -216,3 +216,48 @@ class ShowManager:
                 updated_shows.append(show.movie_title)
         return updated_shows
 
+    def get_analytics(self) -> Dict[str, Any]:
+        """Calculates live counter analytics, revenue, tax collections, and tier occupancy."""
+        total_sales = Decimal("0.00")
+        total_tax = Decimal("0.00")
+        total_fees = Decimal("0.00")
+        total_discounts = Decimal("0.00")
+        total_tickets = 0
+        tier_counts = {"Silver": 0, "Gold": 0, "Recliner": 0}
+
+        with self._lock:
+            for b in self.bookings:
+                p = b.get("pricing", {})
+                total_sales += Decimal(str(p.get("grand_total", 0)))
+                total_tax += Decimal(str(p.get("total_tax", 0)))
+                total_fees += Decimal(str(p.get("total_convenience_fee", 0)))
+                total_discounts += Decimal(str(p.get("total_discount_applied", 0)))
+                total_tickets += int(p.get("total_tickets", 0))
+                for item in b.get("items_booked", []):
+                    t = item.get("tier")
+                    if t in tier_counts:
+                        tier_counts[t] += item.get("quantity", 0)
+
+            # Capacity metrics
+            total_seats_all = sum(sum(t.total_seats for t in s.tiers.values()) for s in self.shows.values())
+            booked_seats_all = sum(sum(t.booked_seats for t in s.tiers.values()) for s in self.shows.values())
+            occupancy_pct = round((booked_seats_all / total_seats_all * 100), 1) if total_seats_all > 0 else 0.0
+
+            return {
+                "total_transactions": len(self.bookings),
+                "total_tickets_sold": total_tickets,
+                "total_revenue": float(total_sales),
+                "total_revenue_fmt": f"₹{total_sales:.2f}",
+                "total_tax_collected": float(total_tax),
+                "total_tax_collected_fmt": f"₹{total_tax:.2f}",
+                "total_fees_collected": float(total_fees),
+                "total_fees_collected_fmt": f"₹{total_fees:.2f}",
+                "total_discounts_given": float(total_discounts),
+                "total_discounts_given_fmt": f"₹{total_discounts:.2f}",
+                "tier_counts": tier_counts,
+                "total_seats_all": total_seats_all,
+                "booked_seats_all": booked_seats_all,
+                "occupancy_pct": occupancy_pct
+            }
+
+

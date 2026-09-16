@@ -13,6 +13,7 @@ let appState = {
         Gold: 0,
         Recliner: 0
     },
+    selectedSeatIds: [],
     offers: {
         enableFestival: false,
         enableMember: false,
@@ -21,6 +22,7 @@ let appState = {
     latestPricing: null,
     isCalculating: false
 };
+
 
 // DOM Elements
 const showsListEl = document.getElementById("showsList");
@@ -260,7 +262,100 @@ function renderTiers() {
 
         tiersContainerEl.appendChild(card);
     });
+    renderVisualSeatGrid();
 }
+
+function renderVisualSeatGrid() {
+    const gridEl = document.getElementById("visualSeatGrid");
+    if (!gridEl) return;
+    gridEl.innerHTML = "";
+    const activeShow = getActiveShow();
+    if (!activeShow) return;
+
+    const rowConfigs = [
+        { row: "A", tier: "Recliner", count: 12 },
+        { row: "B", tier: "Gold", count: 14 },
+        { row: "C", tier: "Gold", count: 14 },
+        { row: "D", tier: "Silver", count: 16 },
+        { row: "E", tier: "Silver", count: 16 }
+    ];
+
+    rowConfigs.forEach(cfg => {
+        const tierInfo = activeShow.tiers[cfg.tier] || { is_sold_out: false, available_seats: 0 };
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "flex items-center gap-2";
+
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "w-24 text-[10px] font-mono text-slate-400 font-bold shrink-0";
+        labelSpan.textContent = `Row ${cfg.row} (${cfg.tier})`;
+        rowDiv.appendChild(labelSpan);
+
+        const seatsContainer = document.createElement("div");
+        seatsContainer.className = "flex items-center gap-1.5 flex-wrap";
+
+        for (let i = 1; i <= cfg.count; i++) {
+            const seatId = `${cfg.row}${i}`;
+            const isSelected = appState.selectedSeatIds.includes(seatId);
+            const isOccupied = tierInfo.is_sold_out || (i > tierInfo.available_seats && !isSelected);
+
+            const seatBtn = document.createElement("button");
+            seatBtn.type = "button";
+            seatBtn.dataset.seatId = seatId;
+            seatBtn.dataset.tier = cfg.tier;
+
+            const baseClass = "w-6 h-6 rounded text-[9px] font-mono font-bold flex items-center justify-center transition";
+            if (isOccupied) {
+                seatBtn.className = `${baseClass} bg-rose-950/40 border border-rose-900 text-rose-500 cursor-not-allowed opacity-50`;
+                seatBtn.textContent = "✕";
+                seatBtn.disabled = true;
+                seatBtn.title = `${seatId} (${cfg.tier}) - Booked`;
+            } else if (isSelected) {
+                seatBtn.className = `${baseClass} bg-amber-500 text-slate-950 border border-amber-400 font-black shadow`;
+                seatBtn.textContent = i;
+                seatBtn.title = `${seatId} (${cfg.tier}) - Selected`;
+            } else {
+                seatBtn.className = `${baseClass} bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-amber-500/60 cursor-pointer`;
+                seatBtn.textContent = i;
+                seatBtn.title = `${seatId} (${cfg.tier}) - Available`;
+            }
+
+            if (!isOccupied) {
+                seatBtn.addEventListener("click", () => {
+                    toggleSeatSelection(seatId, cfg.tier);
+                });
+            }
+
+            seatsContainer.appendChild(seatBtn);
+        }
+
+        rowDiv.appendChild(seatsContainer);
+        gridEl.appendChild(rowDiv);
+    });
+}
+
+function toggleSeatSelection(seatId, tier) {
+    const activeShow = getActiveShow();
+    if (!activeShow) return;
+    const tierInfo = activeShow.tiers[tier];
+    if (!tierInfo) return;
+
+    const idx = appState.selectedSeatIds.indexOf(seatId);
+    if (idx > -1) {
+        appState.selectedSeatIds.splice(idx, 1);
+        appState.selectedQuantities[tier] = Math.max(0, (appState.selectedQuantities[tier] || 0) - 1);
+    } else {
+        if ((appState.selectedQuantities[tier] || 0) >= tierInfo.available_seats) {
+            showToast(`No more seats available in ${tier}!`, true);
+            return;
+        }
+        appState.selectedSeatIds.push(seatId);
+        appState.selectedQuantities[tier] = (appState.selectedQuantities[tier] || 0) + 1;
+    }
+
+    renderTiers();
+    triggerRecalculate();
+}
+
 
 // 4. Live Pricing Engine Recalculation
 async function triggerRecalculate() {
@@ -363,6 +458,18 @@ function updateBillUI(pricing) {
     summaryGrandTotalEl.classList.add("flash-change");
     setTimeout(() => summaryGrandTotalEl.classList.remove("flash-change"), 400);
 
+    // Sync UPI & Cash Due amounts
+    const upiBadge = document.getElementById("upiAmountBadge");
+    if (upiBadge) upiBadge.textContent = pricing.grand_total_fmt;
+
+    const cashIn = document.getElementById("cashTenderedInput");
+    const cashDue = document.getElementById("cashChangeDue");
+    if (cashIn && cashDue) {
+        const val = parseFloat(cashIn.value) || 0;
+        const due = Math.max(0, val - pricing.grand_total);
+        cashDue.textContent = `₹${due.toFixed(2)}`;
+    }
+
     // Audit notes
     calculationAuditNotesEl.innerHTML = "";
     pricing.calculation_notes.forEach(note => {
@@ -389,6 +496,9 @@ function resetBillUI() {
     summarySgstFeeEl.textContent = "₹0.00";
     summaryGrandTotalEl.textContent = "₹0.00";
     calculationAuditNotesEl.innerHTML = "<div>No calculation notes yet.</div>";
+
+    const upiBadge = document.getElementById("upiAmountBadge");
+    if (upiBadge) upiBadge.textContent = "₹0.00";
 }
 
 // 6. Complete Booking & Generate Printable Thermal Receipt
@@ -408,6 +518,9 @@ async function handleBooking() {
     btnBookEl.disabled = true;
     btnBookEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Reserving Seats...`;
 
+    const cashIn = document.getElementById("cashTenderedInput");
+    const cashDue = document.getElementById("cashChangeDue");
+
     const payload = {
         show_id: appState.selectedShowId,
         items: items,
@@ -421,8 +534,12 @@ async function handleBooking() {
         },
         customer_name: customerNameEl.value.trim() || "Counter Walk-in",
         customer_phone: customerPhoneEl.value.trim() || "N/A",
-        payment_mode: paymentModeEl.value
+        payment_mode: paymentModeEl.value,
+        selected_seats: appState.selectedSeatIds,
+        cash_tendered: cashIn ? cashIn.value : null,
+        change_due: cashDue ? cashDue.textContent : null
     };
+
 
     try {
         const res = await fetch("/api/bookings/create", {
@@ -444,6 +561,7 @@ async function handleBooking() {
 
             // Reset selection for next customer in queue
             appState.selectedQuantities = { Silver: 0, Gold: 0, Recliner: 0 };
+            appState.selectedSeatIds = [];
             renderShows();
             renderTiers();
             triggerRecalculate();
@@ -486,6 +604,11 @@ function renderThermalReceipt(receipt) {
             <div class="font-bold uppercase text-xs">${receipt.movie_title}</div>
             <div class="text-slate-600">${receipt.screen_name}</div>
             <div class="font-semibold text-sky-800">${receipt.show_time}</div>
+            ${receipt.selected_seats && receipt.selected_seats.length > 0 ? `
+            <div class="mt-1 text-slate-800 font-bold bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
+                Seats: ${receipt.selected_seats.join(", ")}
+            </div>
+            ` : ''}
         </div>
 
         <div class="py-2 border-b border-dashed border-slate-300 text-[11px]">
@@ -522,10 +645,18 @@ function renderThermalReceipt(receipt) {
             </div>
         </div>
 
+        ${receipt.payment_mode === "Cash" && receipt.cash_tendered ? `
+        <div class="py-1 text-[10px] text-slate-700 border-b border-dashed border-slate-300 space-y-0.5">
+            <div class="flex justify-between"><span>Cash Tendered:</span> <span class="font-mono">₹${parseFloat(receipt.cash_tendered).toFixed(2)}</span></div>
+            <div class="flex justify-between font-bold text-emerald-800"><span>Change Returned:</span> <span class="font-mono">${receipt.change_due || '₹0.00'}</span></div>
+        </div>
+        ` : ''}
+
         <div class="py-2.5 my-1 border-t-2 border-b-2 border-slate-900 flex justify-between items-center text-sm font-black">
             <span>TOTAL PAID:</span>
             <span class="text-base">${p.grand_total_fmt}</span>
         </div>
+
 
         <div class="text-center text-[9px] text-slate-500 pt-1 leading-relaxed">
             <p>* Settled to the exact paisa *</p>
@@ -569,11 +700,16 @@ function attachEventListeners() {
     // Clear Button
     btnClearEl.addEventListener("click", () => {
         appState.selectedQuantities = { Silver: 0, Gold: 0, Recliner: 0 };
+        appState.selectedSeatIds = [];
         toggleFestivalEl.checked = false;
         appState.offers.enableFestival = false;
         toggleMemberEl.checked = false;
         appState.offers.enableMember = false;
         memberIdGroupEl.classList.add("hidden");
+        const cashIn = document.getElementById("cashTenderedInput");
+        const cashDue = document.getElementById("cashChangeDue");
+        if (cashIn) cashIn.value = "";
+        if (cashDue) cashDue.textContent = "₹0.00";
         renderTiers();
         triggerRecalculate();
         showToast("Counter cleared for next customer.");
@@ -783,6 +919,95 @@ function attachEventListeners() {
         }
     });
 
+    // Tabs: Quick Counters vs Audi Seat Grid
+    const btnTabCounters = document.getElementById("btnTabCounters");
+    const btnTabSeatMap = document.getElementById("btnTabSeatMap");
+    const seatMapContainer = document.getElementById("seatMapContainer");
+
+    if (btnTabCounters && btnTabSeatMap && seatMapContainer) {
+        btnTabCounters.addEventListener("click", () => {
+            btnTabCounters.className = "px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-bold flex items-center gap-1 transition";
+            btnTabSeatMap.className = "px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium flex items-center gap-1 transition";
+            tiersContainerEl.classList.remove("hidden");
+            seatMapContainer.classList.add("hidden");
+        });
+
+        btnTabSeatMap.addEventListener("click", () => {
+            btnTabSeatMap.className = "px-2.5 py-1 rounded bg-amber-500 text-slate-950 font-bold flex items-center gap-1 transition";
+            btnTabCounters.className = "px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium flex items-center gap-1 transition";
+            tiersContainerEl.classList.add("hidden");
+            seatMapContainer.classList.remove("hidden");
+            renderVisualSeatGrid();
+        });
+    }
+
+    // Payment Mode toggle (Cash change calculator vs UPI QR preview)
+    const cashChangeBox = document.getElementById("cashChangeBox");
+    const upiQrBox = document.getElementById("upiQrBox");
+    const cashTenderedInput = document.getElementById("cashTenderedInput");
+    const cashChangeDue = document.getElementById("cashChangeDue");
+
+    if (paymentModeEl) {
+        paymentModeEl.addEventListener("change", (e) => {
+            const mode = e.target.value;
+            if (mode === "Cash") {
+                if (cashChangeBox) cashChangeBox.classList.remove("hidden");
+                if (upiQrBox) upiQrBox.classList.add("hidden");
+            } else if (mode === "UPI") {
+                if (cashChangeBox) cashChangeBox.classList.add("hidden");
+                if (upiQrBox) upiQrBox.classList.remove("hidden");
+            } else {
+                if (cashChangeBox) cashChangeBox.classList.add("hidden");
+                if (upiQrBox) upiQrBox.classList.add("hidden");
+            }
+        });
+    }
+
+    if (cashTenderedInput && cashChangeDue) {
+        cashTenderedInput.addEventListener("input", () => {
+            const tendered = parseFloat(cashTenderedInput.value) || 0;
+            const grandTotal = appState.latestPricing ? appState.latestPricing.grand_total : 0;
+            const change = Math.max(0, tendered - grandTotal);
+            cashChangeDue.textContent = `₹${change.toFixed(2)}`;
+        });
+    }
+
+    // Manager Analytics Dashboard
+    const btnAnalytics = document.getElementById("btnAnalytics");
+    const analyticsModal = document.getElementById("analyticsModal");
+    const btnCloseAnalyticsModal = document.getElementById("btnCloseAnalyticsModal");
+
+    if (btnAnalytics && analyticsModal) {
+        btnAnalytics.addEventListener("click", async () => {
+            analyticsModal.classList.remove("hidden");
+            try {
+                const res = await fetch("/api/analytics");
+                const data = await res.json();
+                if (data.status === "success") {
+                    const a = data.analytics;
+                    document.getElementById("analyticsRev").textContent = a.total_revenue_fmt;
+                    document.getElementById("analyticsTax").textContent = a.total_tax_collected_fmt;
+                    document.getElementById("analyticsFees").textContent = a.total_fees_collected_fmt;
+                    document.getElementById("analyticsDisc").textContent = a.total_discounts_given_fmt;
+                    document.getElementById("analyticsTxCount").textContent = a.total_transactions;
+                    document.getElementById("analyticsTixCount").textContent = a.total_tickets_sold;
+                    document.getElementById("analyticsOccupancy").textContent = a.occupancy_pct + "%";
+                    document.getElementById("analyticsSilverTix").textContent = a.tier_counts ? (a.tier_counts.Silver || 0) : 0;
+                    document.getElementById("analyticsGoldTix").textContent = a.tier_counts ? (a.tier_counts.Gold || 0) : 0;
+                    document.getElementById("analyticsReclinerTix").textContent = a.tier_counts ? (a.tier_counts.Recliner || 0) : 0;
+                }
+            } catch (err) {
+                showToast("Failed to load analytics: " + err.message, true);
+            }
+        });
+    }
+
+    if (btnCloseAnalyticsModal && analyticsModal) {
+        btnCloseAnalyticsModal.addEventListener("click", () => {
+            analyticsModal.classList.add("hidden");
+        });
+    }
+
     // Keyboard Shortcuts (Fast counter cashier operations)
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
@@ -790,6 +1015,7 @@ function attachEventListeners() {
             historyModal.classList.add("hidden");
             rulesModal.classList.add("hidden");
             importModal.classList.add("hidden");
+            if (analyticsModal) analyticsModal.classList.add("hidden");
         }
     });
 }
